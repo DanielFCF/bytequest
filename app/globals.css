@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #000;
+}
+
+/* Respeita quem pediu menos movimento no sistema operacional. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Entrada dos eventos do Live Threat Feed.
+   Definida aqui porque `animate-in` pertence ao plugin
+   tailwindcss-animate, que não é dependência deste projeto. */
+@keyframes bq-feed-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bq-feed-item {
+  animation: bq-feed-in 400ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bq-feed-item {
+    animation: none;
+  }
+}
+
+/* Diagrama animado dos verbetes da CyberPedia.
+   Substitui imagem/vídeo externo: não depende de rede, não tem
+   questão de direito de uso e mantém o tema escuro. */
+@keyframes bq-flow-dash {
+  to {
+    stroke-dashoffset: -48;
+  }
+}
+
+@keyframes bq-flow-pulse {
+  0%,
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  15% {
+    opacity: 0.65;
+    transform: scale(1.35);
+  }
+}
+
+.bq-flow-line {
+  animation: bq-flow-dash 1.6s linear infinite;
+}
+
+.bq-flow-pulse {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: bq-flow-pulse 2.4s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bq-flow-line,
+  .bq-flow-pulse {
+    animation: none;
+  }
+  .bq-flow-pulse {
+    opacity: 0;
+  }
+}
+
+/* Diagrama de etapas do ataque: nós entram em sequência, setas pulsam. */
+@keyframes bq-node-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes bq-arrow-pulse {
+  0%, 100% { opacity: 0.35; transform: translateX(0); }
+  50% { opacity: 1; transform: translateX(3px); }
+}
+.bq-flow-node { animation: bq-node-in 500ms ease-out both; }
+.bq-flow-arrow { font-size: 22px; line-height: 1; animation: bq-arrow-pulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .bq-flow-node, .bq-flow-arrow { animation: none; }
+}
