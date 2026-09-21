@@ -66,6 +66,7 @@ import {
   ShoppingBag,
   ShoppingCart,
   Star,
+  Swords,
   TrendingDown,
   TrendingUp,
   TriangleAlert,
@@ -75,6 +76,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { CYBERPEDIA } from "@/lib/cyberpedia";
+import { positionFor, tierFor } from "@/lib/league";
 import { SECTORS } from "@/lib/sectors";
 import type {
   Article,
@@ -127,6 +129,13 @@ const SECTOR_ICONS: Record<SectorIconName, LucideIcon> = {
 };
 
 const ARTICLE_ICONS: Record<ArticleIconName, LucideIcon> = {
+  Wifi,
+  Eye,
+  Package,
+  Cloud,
+  FileText,
+  ShieldAlert,
+  Users,
   Fish,
   Link2Off,
   Lock,
@@ -175,6 +184,8 @@ interface PersistedSession {
   progress: Record<TrackKey, SectorProgress>;
   /** plano da trilha personalizada, para sobreviver ao reload */
   plan: TrackPlanResponse | null;
+  /** pontuação de liga do Modo Duelo, acumulada na sessão */
+  league: LeagueState;
   /** estado do módulo em andamento, para os escudos sobreviverem ao reload */
   runner: Record<string, { attempt: number; hintUsed: boolean; guided: boolean }>;
 }
@@ -235,6 +246,7 @@ const KIND_LABEL: Record<PublicMission["kind"], string> = {
 type View =
   | "onboarding"
   | "portal"
+  | "duelo"
   | "diagnostico"
   | "map"
   | "briefing"
@@ -255,6 +267,17 @@ interface SectorProgress {
   /** concluídas com dificuldade — voltam na fila de revisão */
   review: string[];
 }
+
+/** Progresso de liga do Modo Duelo — acumulado entre partidas. */
+interface LeagueState {
+  points: number;
+  matches: number;
+  wins: number;
+  draws: number;
+  losses: number;
+}
+
+const EMPTY_LEAGUE: LeagueState = { points: 0, matches: 0, wins: 0, draws: 0, losses: 0 };
 
 const EMPTY_PROGRESS: SectorProgress = { xp: 0, streak: 0, failures: 0, completed: [], review: [] };
 
@@ -358,6 +381,7 @@ function ByteQuestApp() {
   );
   const [articleId, setArticleId] = useState<string | null>(restored.articleId ?? null);
   const [plan, setPlan] = useState<TrackPlanResponse | null>(restored.plan ?? null);
+  const [league, setLeague] = useState<LeagueState>(restored.league ?? EMPTY_LEAGUE);
 
   const isCiso = badgeId === CISO_BADGE;
   const isCustom = badgeId === CUSTOM_BADGE;
@@ -401,8 +425,8 @@ function ByteQuestApp() {
   // Salva o estado durável a cada mudança. Efeito sem setState, então
   // não esbarra em react-hooks/set-state-in-effect.
   useEffect(() => {
-    writeSession({ name, badgeId, view, activeMissionId, articleId, progress, runner, plan });
-  }, [name, badgeId, view, activeMissionId, articleId, progress, runner, plan]);
+    writeSession({ name, badgeId, view, activeMissionId, articleId, progress, runner, plan, league });
+  }, [name, badgeId, view, activeMissionId, articleId, progress, runner, plan, league]);
 
   const activeIndex = missions.findIndex((m) => m.id === activeMissionId);
   const article = CYBERPEDIA.find((a) => a.id === articleId) ?? null;
@@ -421,6 +445,7 @@ function ByteQuestApp() {
     if (view === "diagnostico" && !isCustom) return "map";
     if ((view === "briefing" || view === "mission") && missionMissing && !loading) return "map";
     if (view === "article" && !article) return "pedia";
+    if (view === "duelo") return "duelo";
     if (view === "ciso" || view === "onboarding" || view === "portal") return "map";
     return view;
   })();
@@ -529,6 +554,7 @@ function ByteQuestApp() {
     setProgress(initialProgress());
     setRunner({});
     setPlan(null);
+    setLeague(EMPTY_LEAGUE);
   };
 
   const startBadge = () => {
@@ -636,6 +662,31 @@ function ByteQuestApp() {
       }}
     >
       {screen === "ciso" && <CisoDashboard progress={progress} />}
+
+      {screen === "duelo" && trackKey && (
+        <DuelScreen
+          playerName={name}
+          league={league}
+          onOpenArticle={(articleId) => {
+            setArticleId(articleId);
+            setView("article");
+          }}
+          onFinish={(xp, standing, result) => {
+            setProgress((all) => ({
+              ...all,
+              [trackKey]: { ...all[trackKey], xp: all[trackKey].xp + xp },
+            }));
+            setLeague((current) => ({
+              points: standing.points,
+              matches: current.matches + 1,
+              wins: current.wins + (result === "win" ? 1 : 0),
+              draws: current.draws + (result === "draw" ? 1 : 0),
+              losses: current.losses + (result === "loss" ? 1 : 0),
+            }));
+          }}
+          onExit={() => setView("map")}
+        />
+      )}
 
       {screen === "diagnostico" && (
         <DiagnosticScreen
@@ -810,6 +861,14 @@ function AppShell({
               onClick={() => onNavigate("map")}
             />
           )}
+          {!isCiso && (
+            <MenuItem
+              icon={Swords}
+              label="Duelo"
+              active={activeView === "duelo"}
+              onClick={() => onNavigate("duelo")}
+            />
+          )}
           <MenuItem
             icon={BookOpen}
             label="CyberPedia"
@@ -910,6 +969,14 @@ function AppShell({
                 />
               )}
 
+              {!isCiso && (
+                <MenuItem
+                  icon={Swords}
+                  label="Duelo"
+                  active={activeView === "duelo"}
+                  onClick={() => onNavigate("duelo")}
+                />
+              )}
               <MenuItem
                 icon={BookOpen}
                 label="CyberPedia"
@@ -1374,6 +1441,781 @@ function DevicePreview() {
 }
 
 // ============================================================
+// MODO DUELO — partida 1v1 contra oponente simulado
+// ============================================================
+
+interface DuelMatch {
+  matchId: string;
+  opponent: { name: string; handle: string; tier: string; unit: string; rating: number; avatar: string };
+  questions: Array<{
+    id: string;
+    category: string;
+    prompt: string;
+    options: Array<{ id: string; label: string }>;
+  }>;
+  secondsPerQuestion: number;
+  total: number;
+}
+
+interface DuelStanding {
+  tier: string;
+  progress: number;
+  points: number;
+  delta: number;
+  toNext: number;
+  globalRank: number;
+  unitRank: number;
+  percentile: number;
+  accuracy: number;
+}
+
+interface DuelRound {
+  correct: boolean;
+  correctOptionId: string;
+  explanation: string;
+  /** verbete da CyberPedia que responde a pergunta */
+  article: string;
+  /** ao fim da partida: verbetes das perguntas erradas */
+  review: string[];
+  bot: { correct: boolean; optionId: string; ms: number };
+  scores: { you: number; opponent: number };
+  hits: { you: number; opponent: number };
+  finished: boolean;
+  xpAwarded: number;
+  result: "win" | "draw" | "loss" | null;
+  standing: DuelStanding | null;
+}
+
+type DuelPhase = "lobby" | "matching" | "found" | "playing" | "over";
+
+/** Selo de liga — mesmo desenho nas duas pontas do confronto. */
+function TierBadge({ tier, size = "sm" }: { tier: string; size?: "sm" | "lg" }) {
+  const gold = tier.startsWith("Ouro");
+  const silver = tier.startsWith("Prata");
+  const tone = gold
+    ? "border-amber-400/60 bg-amber-400/10 text-amber-300"
+    : silver
+      ? "border-neutral-400/50 bg-neutral-400/10 text-neutral-200"
+      : "border-orange-700/60 bg-orange-700/10 text-orange-400";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border font-bold ${tone} ${
+        size === "lg" ? "px-3 py-1 text-xs" : "px-2 py-0.5 text-[10px]"
+      }`}
+    >
+      <Shield size={size === "lg" ? 12 : 10} aria-hidden /> {tier}
+    </span>
+  );
+}
+
+function Fighter({
+  initials,
+  name,
+  handle,
+  tier,
+  accent,
+  align = "left",
+}: {
+  initials: string;
+  name: string;
+  handle: string;
+  tier: string;
+  accent: "emerald" | "violet";
+  align?: "left" | "right";
+}) {
+  const ring = accent === "emerald" ? "border-emerald-400/70" : "border-violet-400/70";
+  const glow = accent === "emerald" ? "bg-emerald-500/20" : "bg-violet-500/20";
+  return (
+    <div className={`flex flex-col items-center ${align === "right" ? "order-3" : ""}`}>
+      <div className="relative mb-2 flex h-20 w-20 items-center justify-center">
+        <span className={`absolute h-full w-full rounded-full ${glow} blur-xl`} aria-hidden />
+        <div
+          className={`relative flex h-20 w-20 items-center justify-center rounded-full border-2 bg-neutral-950 text-lg font-black ${ring}`}
+        >
+          {initials}
+        </div>
+      </div>
+      <div className="max-w-[9rem] truncate text-sm font-black">{name}</div>
+      <div className="mb-1.5 font-mono text-[10px] tracking-wider text-neutral-500 uppercase">
+        {handle}
+      </div>
+      <TierBadge tier={tier} />
+    </div>
+  );
+}
+
+function DuelScreen({
+  playerName,
+  league,
+  onOpenArticle,
+  onFinish,
+  onExit,
+}: {
+  playerName: string;
+  league: LeagueState;
+  onOpenArticle: (articleId: string) => void;
+  onFinish: (
+    xp: number,
+    standing: DuelStanding,
+    result: "win" | "draw" | "loss",
+  ) => void;
+  onExit: () => void;
+}) {
+  const status = tierFor(league.points);
+  const position = positionFor(league.points, playerName);
+  const [phase, setPhase] = useState<DuelPhase>("lobby");
+  const [match, setMatch] = useState<DuelMatch | null>(null);
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState<Array<{ optionId: string | null; ms: number }>>([]);
+  const [round, setRound] = useState<DuelRound | null>(null);
+  // O placar vive FORA do round: antes ele era lido de `round`, que é
+  // zerado a cada pergunta — e o placar voltava a 0x0 na tela.
+  const [scores, setScores] = useState({ you: 0, opponent: 0 });
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [startedAt, setStartedAt] = useState(0);
+  const [now, setNow] = useState(0);
+  const [botAnswered, setBotAnswered] = useState(false);
+
+  const seconds = match?.secondsPerQuestion ?? 15;
+  const remaining = startedAt === 0 ? seconds * 1000 : Math.max(0, seconds * 1000 - (now - startedAt));
+  const ratio = remaining / (seconds * 1000);
+
+  const submitRef = useRef<(optionId: string | null) => void>(() => {});
+
+  const playerInitials = (playerName.trim() || "Você")
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  const send = useCallback(
+    async (optionId: string | null, ms: number) => {
+      if (!match || busy) return;
+      setBusy(true);
+      setStartedAt(0);
+      const next = [...answers, { optionId, ms }];
+      setAnswers(next);
+      try {
+        const response = await fetch("/api/duelo/answer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            matchId: match.matchId,
+            answers: next,
+            leaguePoints: league.points,
+            playerName,
+          }),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = (await response.json()) as DuelRound;
+        setRound(data);
+        setScores(data.scores);
+      } catch {
+        setFailed(true);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [answers, busy, league.points, match, playerName, setRound, setScores],
+  );
+
+  useEffect(() => {
+    submitRef.current = (optionId: string | null) => {
+      void send(optionId, startedAt === 0 ? seconds * 1000 : Date.now() - startedAt);
+    };
+  }, [seconds, send, startedAt]);
+
+  useEffect(() => {
+    if (phase !== "playing" || startedAt === 0 || round) return;
+    const id = setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      if (current - startedAt >= seconds * 1000) {
+        clearInterval(id);
+        submitRef.current(null);
+      }
+    }, 100);
+    return () => clearInterval(id);
+  }, [phase, startedAt, seconds, round]);
+
+  useEffect(() => {
+    if (phase !== "playing" || startedAt === 0 || round) return;
+    const delay = 3000 + ((index * 2654435761) % 6000);
+    const id = setTimeout(() => setBotAnswered(true), delay);
+    return () => clearTimeout(id);
+  }, [phase, startedAt, index, round]);
+
+  const beginQuestion = () => {
+    const t = Date.now();
+    setStartedAt(t);
+    setNow(t);
+  };
+
+  const startMatch = async () => {
+    setPhase("matching");
+    setFailed(false);
+    try {
+      const response = await fetch("/api/duelo");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = (await response.json()) as DuelMatch;
+      setTimeout(() => {
+        setMatch(data);
+        setIndex(0);
+        setAnswers([]);
+        setRound(null);
+        setScores({ you: 0, opponent: 0 });
+        setBotAnswered(false);
+        setPhase("found");
+        // tela de confronto antes da primeira pergunta
+        setTimeout(() => {
+          setPhase("playing");
+          beginQuestion();
+        }, 2600);
+      }, 2200);
+    } catch {
+      setFailed(true);
+      setPhase("lobby");
+    }
+  };
+
+  const nextQuestion = () => {
+    if (!round || !match) return;
+    if (round.finished && round.standing && round.result) {
+      onFinish(round.xpAwarded, round.standing, round.result);
+      setPhase("over");
+      return;
+    }
+    setRound(null);
+    setBotAnswered(false);
+    setIndex(index + 1);
+    beginQuestion();
+  };
+
+  // ============ LOBBY ============
+  if (phase === "lobby") {
+    return (
+      <div className="px-5 pt-6 pb-10 lg:mx-auto lg:max-w-2xl">
+        <div className="mb-1 flex items-center gap-2">
+          <Swords size={16} className="text-violet-400" aria-hidden />
+          <span className="text-xs font-bold tracking-wide text-violet-400 uppercase">Duelo</span>
+        </div>
+        <h1 className="mb-1 text-2xl font-black tracking-tight">Liga de Cibersegurança</h1>
+        <p className="mb-5 text-sm text-neutral-400">
+          Cinco perguntas, 15 segundos cada. Quem responde certo e rápido pontua mais.
+        </p>
+
+        {/* Classificação atual — acumulada na sessão */}
+        <div className="mb-4 rounded-3xl border border-neutral-800 bg-gradient-to-br from-neutral-900 to-neutral-950 p-5">
+          <div className="flex items-center gap-4">
+            <div className="relative flex h-16 w-16 shrink-0 items-center justify-center">
+              <span
+                className={`absolute h-full w-full rounded-2xl blur-lg ${
+                  status.tier.accent === "gold"
+                    ? "bg-amber-400/25"
+                    : status.tier.accent === "silver"
+                      ? "bg-neutral-300/20"
+                      : status.tier.accent === "diamond"
+                        ? "bg-cyan-300/25"
+                        : "bg-orange-700/25"
+                }`}
+                aria-hidden
+              />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-neutral-700 bg-neutral-950">
+                <Shield
+                  size={26}
+                  className={
+                    status.tier.accent === "gold"
+                      ? "text-amber-300"
+                      : status.tier.accent === "silver"
+                        ? "text-neutral-200"
+                        : status.tier.accent === "diamond"
+                          ? "text-cyan-300"
+                          : "text-orange-400"
+                  }
+                  aria-hidden
+                />
+              </div>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] tracking-widest text-neutral-500 uppercase">
+                Sua classificação
+              </div>
+              <div className="text-xl font-black tracking-tight">{status.tier.name}</div>
+              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-neutral-800">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-emerald-500 transition-all duration-700"
+                  style={{ width: `${status.progress}%` }}
+                />
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[10px] text-neutral-500">
+                <span>{league.points} pontos de liga</span>
+                <span>
+                  {status.next ? `faltam ${status.toNext} para ${status.next.name}` : "faixa máxima"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-4 gap-2 border-t border-neutral-800 pt-3 text-center">
+            <div>
+              <div className="text-sm font-black">#{position.rank}</div>
+              <div className="text-[9px] tracking-wider text-neutral-500 uppercase">Global</div>
+            </div>
+            <div>
+              <div className="text-sm font-black text-emerald-400">{league.wins}</div>
+              <div className="text-[9px] tracking-wider text-neutral-500 uppercase">Vitórias</div>
+            </div>
+            <div>
+              <div className="text-sm font-black text-neutral-300">{league.draws}</div>
+              <div className="text-[9px] tracking-wider text-neutral-500 uppercase">Empates</div>
+            </div>
+            <div>
+              <div className="text-sm font-black text-red-400">{league.losses}</div>
+              <div className="text-[9px] tracking-wider text-neutral-500 uppercase">Derrotas</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quadro de líderes (fictício) */}
+        <div className="mb-5 overflow-hidden rounded-2xl border border-neutral-800">
+          <div className="border-b border-neutral-800 bg-neutral-900/60 px-4 py-2 text-[10px] font-bold tracking-widest text-neutral-500 uppercase">
+            Quadro da liga
+          </div>
+          {position.board.map((row, i) => (
+            <div
+              key={row.name + i}
+              className={`flex items-center gap-3 px-4 py-2.5 ${
+                row.you ? "bg-violet-500/10" : "bg-neutral-950/40"
+              } ${i > 0 ? "border-t border-neutral-900" : ""}`}
+            >
+              <span className="w-5 shrink-0 text-[11px] font-bold text-neutral-500 tabular-nums">
+                {i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className={`truncate text-xs font-bold ${row.you ? "text-violet-200" : ""}`}>
+                  {row.name}
+                  {row.you && (
+                    <span className="ml-1.5 rounded bg-violet-500/25 px-1 text-[9px] font-black text-violet-200">
+                      VOCÊ
+                    </span>
+                  )}
+                </div>
+                <div className="truncate text-[10px] text-neutral-500">{row.unit}</div>
+              </div>
+              <span className="shrink-0 text-xs font-black tabular-nums">{row.points}</span>
+            </div>
+          ))}
+        </div>
+
+        {failed && (
+          <div role="alert" className="mb-4 rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-xs text-red-200">
+            Não foi possível abrir a partida. Tente novamente.
+          </div>
+        )}
+
+        <div className="mb-6 grid grid-cols-3 gap-3">
+          {[
+            { v: "100+", l: "pontos por acerto", c: "text-emerald-400" },
+            { v: "+60", l: "bônus de velocidade", c: "text-violet-400" },
+            { v: "5", l: "perguntas por partida", c: "text-neutral-200" },
+          ].map((k) => (
+            <div key={k.l} className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-3">
+              <div className={`text-xl font-black ${k.c}`}>{k.v}</div>
+              <div className="mt-0.5 text-[11px] leading-tight text-neutral-500">{k.l}</div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => void startMatch()}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-violet-500 to-emerald-500 py-4 text-sm font-black text-black transition-all duration-300 hover:scale-[1.02] active:scale-95"
+        >
+          <Swords size={16} aria-hidden /> Procurar oponente
+        </button>
+        <button
+          type="button"
+          onClick={onExit}
+          className="w-full text-center text-xs text-neutral-500 transition-colors hover:text-neutral-300"
+        >
+          ← Voltar para a trilha
+        </button>
+
+        <p className="mt-6 text-[11px] leading-relaxed text-neutral-600">
+          Os adversários são simulados (bots) e identificados como tal. Placar, pontuação e
+          classificação são calculados no servidor.
+        </p>
+      </div>
+    );
+  }
+
+  // ============ PROCURANDO ============
+  if (phase === "matching") {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-20">
+        <div className="relative mb-8 flex h-28 w-28 items-center justify-center">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-500/25" />
+          <span className="absolute inline-flex h-20 w-20 animate-pulse rounded-full bg-violet-500/20" />
+          <Swords size={32} className="relative text-violet-300" aria-hidden />
+        </div>
+        <div className="mb-1 text-lg font-black tracking-widest uppercase">Procurando oponente</div>
+        <p className="text-center text-xs text-neutral-500">
+          Buscando alguém com classificação parecida com a sua
+        </p>
+      </div>
+    );
+  }
+
+  // ============ OPONENTE ENCONTRADO ============
+  if (phase === "found" && match) {
+    return (
+      <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 py-12">
+        <div aria-hidden className="pointer-events-none absolute -top-20 left-1/4 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-20 right-1/4 h-72 w-72 rounded-full bg-violet-600/15 blur-3xl" />
+
+        <div className="bq-flow-node relative mb-10 text-center">
+          <div className="text-[11px] font-black tracking-[0.35em] text-emerald-400 uppercase">
+            Oponente encontrado
+          </div>
+        </div>
+
+        <div className="relative flex w-full max-w-md items-start justify-between gap-4">
+          <Fighter
+            initials={playerInitials}
+            name={playerName.trim() || "Você"}
+            handle="você"
+            tier={status.tier.name}
+            accent="emerald"
+          />
+          <div className="order-2 flex flex-col items-center pt-6">
+            <span className="text-2xl font-black tracking-tighter text-neutral-500">VS</span>
+          </div>
+          <Fighter
+            initials={match.opponent.avatar}
+            name={match.opponent.name}
+            handle={match.opponent.handle}
+            tier={match.opponent.tier}
+            accent="violet"
+            align="right"
+          />
+        </div>
+
+        <div className="mt-10 flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/80 px-3 py-1.5">
+          <span className="rounded bg-neutral-800 px-1.5 text-[9px] font-black text-neutral-400">BOT</span>
+          <span className="text-[11px] text-neutral-400">{match.opponent.unit}</span>
+        </div>
+      </div>
+    );
+  }
+
+  const question = match?.questions[index];
+
+  // ============ RESULTADO E CLASSIFICAÇÃO ============
+  if (phase === "over" && round && match) {
+    const win = round.result === "win";
+    const draw = round.result === "draw";
+    const st = round.standing;
+    return (
+      <div className="flex flex-1 flex-col px-5 pt-6 pb-10 lg:mx-auto lg:max-w-2xl">
+        <div className="mb-1 text-center text-[11px] font-black tracking-[0.3em] text-neutral-500 uppercase">
+          Sua classificação
+        </div>
+
+        <div
+          className={`mb-4 rounded-3xl border p-6 text-center ${
+            win
+              ? "border-emerald-500/40 bg-gradient-to-b from-emerald-500/10 to-transparent"
+              : draw
+                ? "border-neutral-700 bg-neutral-900/60"
+                : "border-orange-500/40 bg-gradient-to-b from-orange-500/10 to-transparent"
+          }`}
+        >
+          <div className="mb-3 flex justify-center">
+            <div className="relative flex h-20 w-20 items-center justify-center">
+              <span
+                className={`absolute h-full w-full rounded-2xl blur-xl ${
+                  win ? "bg-emerald-500/25" : "bg-neutral-500/15"
+                }`}
+                aria-hidden
+              />
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border-2 border-neutral-600 bg-neutral-950">
+                <Shield size={34} className={win ? "text-emerald-300" : "text-neutral-300"} aria-hidden />
+              </div>
+            </div>
+          </div>
+
+          <div className="text-3xl font-black tracking-tight">{st?.tier ?? "Bronze III"}</div>
+          <div className="mt-1 mb-3 text-[11px] tracking-wider text-neutral-500 uppercase">
+            {win ? "Vitória" : draw ? "Empate" : "Derrota"} · {round.hits.you}/{match.total} acertos
+          </div>
+
+          {st && (
+            <>
+              <div className="mx-auto mb-1 h-1.5 w-48 overflow-hidden rounded-full bg-neutral-800">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-emerald-500 transition-all duration-700"
+                  style={{ width: `${st.progress}%` }}
+                />
+              </div>
+              <div className="text-[11px] font-bold text-amber-300">
+                Melhor que {st.percentile}% dos jogadores · {st.points} pontos
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-3 text-center">
+            <div className="text-[10px] tracking-wider text-neutral-500 uppercase">Ranking global</div>
+            <div className="text-xl font-black">#{st?.globalRank ?? "—"}</div>
+          </div>
+          <div className="rounded-2xl border border-violet-500/40 bg-violet-500/10 p-3 text-center">
+            <div className="text-[10px] tracking-wider text-violet-300 uppercase">Na sua unidade</div>
+            <div className="text-xl font-black text-violet-200">#{st?.unitRank ?? "—"}</div>
+          </div>
+        </div>
+
+        <div className="mb-5 grid grid-cols-3 gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4">
+          <div className="text-center">
+            <div className="text-2xl font-black text-emerald-400">{scores.you}</div>
+            <div className="text-[10px] tracking-wider text-neutral-500 uppercase">Seus pontos</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-black text-red-400">{scores.opponent}</div>
+            <div className="text-[10px] tracking-wider text-neutral-500 uppercase">Oponente</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-black text-neutral-200">{st?.accuracy ?? 0}%</div>
+            <div className="text-[10px] tracking-wider text-neutral-500 uppercase">Precisão</div>
+          </div>
+        </div>
+
+        <div className="mb-5 flex items-center justify-center gap-4 text-center">
+          <span className="font-bold text-violet-300">+{round.xpAwarded} pontos GRC</span>
+          <span className="text-neutral-700">·</span>
+          <span className="font-bold text-amber-300">+{st?.delta ?? 0} pontos de liga</span>
+        </div>
+
+        {round.review.length > 0 && (
+          <div className="mb-5 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+            <div className="mb-2 flex items-center gap-1.5 text-[10px] font-black tracking-widest text-amber-300 uppercase">
+              <BookOpen size={11} aria-hidden /> Para revisar
+            </div>
+            <p className="mb-3 text-[11px] leading-relaxed text-neutral-400">
+              Os verbetes abaixo respondem exatamente as perguntas que você errou.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {round.review.map((id) => {
+                const entry = CYBERPEDIA.find((a) => a.id === id);
+                if (!entry) return null;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => onOpenArticle(id)}
+                    className="rounded-full border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-[11px] font-bold text-neutral-200 transition-all duration-300 hover:scale-105 hover:border-violet-500/60 hover:text-violet-200"
+                  >
+                    {entry.title} →
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => {
+            setPhase("lobby");
+            setMatch(null);
+            setRound(null);
+            setScores({ you: 0, opponent: 0 });
+          }}
+          className="mb-3 w-full rounded-full bg-gradient-to-r from-violet-500 to-emerald-500 py-3.5 text-sm font-bold text-black transition-all duration-300 hover:scale-[1.02] active:scale-95"
+        >
+          Jogar de novo
+        </button>
+        <button
+          type="button"
+          onClick={onExit}
+          className="w-full text-center text-xs text-neutral-500 transition-colors hover:text-neutral-300"
+        >
+          ← Voltar para a trilha
+        </button>
+      </div>
+    );
+  }
+
+  if (!match || !question) return null;
+
+  // ============ ARENA ============
+  const urgent = ratio <= 0.3;
+  // 0x0 divide a barra ao meio; sem isso o lado do oponente ocupava tudo
+  const sum = scores.you + scores.opponent;
+  const youShare = sum === 0 ? 50 : (scores.you / sum) * 100;
+
+  return (
+    <div className="flex flex-1 flex-col px-4 pt-4 pb-8 lg:mx-auto lg:max-w-2xl">
+      {/* HUD dos dois lados */}
+      <div className="mb-3 flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/10 text-[11px] font-black text-emerald-300">
+            {playerInitials}
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-xs font-bold">{playerName.trim() || "Você"}</div>
+            <div className="text-sm font-black text-emerald-400 tabular-nums">{scores.you}</div>
+          </div>
+        </div>
+
+        <div className="shrink-0 rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-1 text-center">
+          <div className="text-[9px] tracking-wider text-neutral-500 uppercase">Rodada</div>
+          <div className="text-sm font-black tabular-nums">
+            {index + 1}/{match.total}
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+          <div className="min-w-0 text-right">
+            <div className="flex items-center justify-end gap-1">
+              <span className="truncate text-xs font-bold">{match.opponent.name}</span>
+              <span className="shrink-0 rounded bg-neutral-800 px-1 text-[8px] font-black text-neutral-400">
+                BOT
+              </span>
+            </div>
+            <div className="text-sm font-black text-violet-400 tabular-nums">{scores.opponent}</div>
+          </div>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-violet-400/60 bg-violet-500/10 text-[11px] font-black text-violet-300">
+            {match.opponent.avatar}
+          </div>
+        </div>
+      </div>
+
+      {/* barra de domínio: quem está à frente ocupa mais espaço */}
+      <div className="mb-3 flex h-2 w-full overflow-hidden rounded-full bg-neutral-800">
+        <div
+          className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700"
+          style={{ width: `${youShare}%` }}
+        />
+        <div className="h-full flex-1 bg-gradient-to-r from-violet-500 to-violet-400 transition-all duration-700" />
+      </div>
+
+      {/* cronômetro */}
+      <div className="mb-4">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-800">
+          <div
+            className={`h-full rounded-full transition-[width] duration-100 ease-linear ${
+              urgent ? "bg-red-500" : "bg-neutral-400"
+            }`}
+            style={{ width: `${ratio * 100}%` }}
+          />
+        </div>
+        <div className="mt-1 flex items-center justify-between text-[10px] text-neutral-500">
+          <span>
+            {botAnswered && !round ? (
+              <span className="font-bold text-violet-300">oponente respondeu</span>
+            ) : (
+              "aguardando sua resposta"
+            )}
+          </span>
+          <span className={`font-bold tabular-nums ${urgent ? "text-red-400" : ""}`}>
+            {(remaining / 1000).toFixed(1)}s
+          </span>
+        </div>
+      </div>
+
+      {/* card da pergunta */}
+      <div className="mb-4 rounded-2xl border border-neutral-800 bg-gradient-to-b from-neutral-900 to-neutral-950 p-5 text-center">
+        <span className="mb-3 inline-block rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-0.5 text-[9px] font-black tracking-widest text-violet-300 uppercase">
+          {question.category}
+        </span>
+        <h2 className="text-base leading-snug font-black tracking-tight">{question.prompt}</h2>
+      </div>
+
+      {/* respostas em grade */}
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        {question.options.map((option) => {
+          const revealed = round !== null;
+          const isRight = revealed && option.id === round.correctOptionId;
+          const isMine = revealed && answers[index]?.optionId === option.id;
+          const isBot = revealed && round.bot.optionId === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              disabled={busy || revealed}
+              onClick={() => submitRef.current(option.id)}
+              className={`relative rounded-xl border px-4 py-4 text-center text-sm font-bold transition-all duration-300 disabled:cursor-default ${
+                isRight
+                  ? "border-emerald-500 bg-emerald-500/15 text-emerald-200"
+                  : isMine
+                    ? "border-red-500/60 bg-red-500/10 text-red-200"
+                    : "border-neutral-700 bg-neutral-900 text-neutral-300 hover:scale-[1.02] hover:border-neutral-500 hover:bg-neutral-800"
+              }`}
+            >
+              {option.label}
+              {revealed && (isMine || isBot) && (
+                <span className="absolute top-1.5 right-2 flex gap-1">
+                  {isMine && (
+                    <span className="rounded bg-emerald-500/20 px-1 text-[8px] font-black text-emerald-300">
+                      VOCÊ
+                    </span>
+                  )}
+                  {isBot && (
+                    <span className="rounded bg-violet-500/20 px-1 text-[8px] font-black text-violet-300">
+                      BOT
+                    </span>
+                  )}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {round && (
+        <div className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4">
+          <p className="mb-3 text-xs leading-relaxed text-neutral-300">{round.explanation}</p>
+          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+            <span className={round.correct ? "font-bold text-emerald-400" : "font-bold text-red-400"}>
+              você {round.correct ? "acertou" : "errou"}
+            </span>
+            <span className="text-neutral-600">·</span>
+            <span className={round.bot.correct ? "text-emerald-400" : "text-red-400"}>
+              {match.opponent.name} {round.bot.correct ? "acertou" : "errou"} em{" "}
+              {(round.bot.ms / 1000).toFixed(1)}s
+            </span>
+          </div>
+
+          {/* a resposta completa está na CyberPedia */}
+          {CYBERPEDIA.find((a) => a.id === round.article) && (
+            <div className="mb-3 flex items-center gap-1.5 text-[11px] text-neutral-500">
+              <BookOpen size={11} className="shrink-0 text-violet-400" aria-hidden />
+              <span>
+                Esta pergunta está explicada em{" "}
+                <span className="font-semibold text-violet-300">
+                  {CYBERPEDIA.find((a) => a.id === round.article)?.title}
+                </span>
+              </span>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={nextQuestion}
+            className="w-full rounded-full bg-neutral-200 py-3 text-sm font-bold text-black transition-all duration-300 hover:scale-[1.02] active:scale-95"
+          >
+            {round.finished ? "Ver classificação" : "Próxima rodada"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // PORTAL CORPORATIVO — porta de entrada do painel executivo
 // ============================================================
 
@@ -1384,6 +2226,7 @@ function DevicePreview() {
  * na versão anterior ele era um crachá ao lado dos demais, o que dava
  * a entender que qualquer colaborador entra no painel da diretoria.
  */
+
 const DEMO_ACCESS_CODE = "SOC-2026";
 
 function CorporatePortal({
@@ -3873,7 +4716,7 @@ function ArticleView({ article, onBack }: { article: Article; onBack: () => void
 const FLOW_ICONS: Record<FlowIconName, LucideIcon> = {
   Mail, Link, Lock, Coins, FileText, Cloud, DoorOpen, Server, CreditCard, Code, Phone, UserX,
   KeyRound, ShieldAlert, Usb, Bot, Building2, Truck, MessageSquare, Eye, QrCode, Mic, Smartphone,
-  Printer, Users, BadgeCheck, Wifi, Package,
+  Printer, Users, BadgeCheck, Wifi, Package, CloudOff, Radar,
 };
 
 /**

@@ -333,6 +333,13 @@ export interface ValidationResponse {
 // ---------- CyberPedia ----------
 
 export type ArticleIconName =
+  | "Wifi"
+  | "Eye"
+  | "Package"
+  | "Cloud"
+  | "FileText"
+  | "ShieldAlert"
+  | "Users"
   | "Fish"
   | "Link2Off"
   | "Lock"
@@ -350,7 +357,7 @@ export type FlowIconName =
   | "Mail" | "Link" | "Lock" | "Coins" | "FileText" | "Cloud" | "DoorOpen" | "Server"
   | "CreditCard" | "Code" | "Phone" | "UserX" | "KeyRound" | "ShieldAlert" | "Usb" | "Bot"
   | "Building2" | "Truck" | "MessageSquare" | "Eye" | "QrCode" | "Mic" | "Smartphone"
-  | "Printer" | "Users" | "BadgeCheck" | "Wifi" | "Package";
+  | "Printer" | "Users" | "BadgeCheck" | "Wifi" | "Package" | "CloudOff" | "Radar";
 
 export interface Article {
   id: string;

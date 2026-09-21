@@ -529,6 +529,360 @@ export const CYBERPEDIA: Article[] = [
       source: "Verizon DBIR 2026",
     },
   },
+  {
+    id: "senhas",
+    title: "Senhas e gerenciadores",
+    subtitle: "Por que a sua senha 'difícil' já está numa lista",
+    icon: "KeyRound",
+    readingMinutes: 4,
+    tags: ["Todos os setores", "Acesso", "Base"],
+    family: "Credenciais",
+    tldr:
+      "Senha longa e única para cada sistema, guardada num gerenciador aprovado — decorar senha complicada não funciona e leva ao reúso.",
+    flow: ["Senha vaza num site", "Testam em outros sistemas", "Entram com a sua conta"],
+    flowIcons: ["FileText", "Bot", "UserX"],
+    whatItIs:
+      "O ataque mais comum contra senha não é adivinhar a sua: é testar, em massa, senhas que já vazaram em outros lugares. Chama-se credential stuffing. Por isso o problema central não é a senha ser 'difícil', e sim ser reutilizada. 'P@ssw0rd2026!' parece forte e está em qualquer dicionário de ataque, porque as substituições de letra por símbolo são previsíveis. Uma frase longa como 'girassol-pedra-caneca-verde' resiste muito mais, e um gerenciador de senhas dispensa você de decorar qualquer uma delas.",
+    howTheyAct: [
+      "Compram ou baixam bases de credenciais vazadas de sites sem relação com a empresa.",
+      "Automatizam o teste dessas combinações em portais corporativos, VPN e webmail.",
+      "Quando uma funciona, entram com credencial válida — sem malware e sem alerta de invasão.",
+      "Se houver MFA, partem para fadiga de MFA ou para o help desk, pedindo redefinição.",
+    ],
+    defense: [
+      "Use o gerenciador de senhas aprovado pela empresa: ele cria senhas únicas e longas e preenche sozinho.",
+      "Nunca reutilize a senha do trabalho em site pessoal — um vazamento lá entrega a conta corporativa aqui.",
+      "Prefira frases longas a senhas curtas cheias de símbolos: comprimento vence complexidade decorada.",
+      "Não compartilhe senha nem em férias: peça delegação formal de acesso, que preserva a rastreabilidade.",
+      "Senha anotada em papel, planilha ou bloco de notas é senha publicada — troque e mova para o gerenciador.",
+    ],
+    takeaway:
+      "A pergunta não é se a sua senha é difícil. É se ela é única — e se você precisa decorá-la.",
+    deepDive: {
+      title: "Aprofundar: por que a troca periódica obrigatória saiu de moda",
+      body:
+        "Diretrizes atuais do NIST (SP 800-63B) desaconselham a expiração periódica sem motivo: forçar troca a cada 60 dias leva a variações previsíveis (Senha01, Senha02) e enfraquece o conjunto. A recomendação é senha longa, única, verificada contra listas de vazamento, com troca apenas quando houver indício de comprometimento — e MFA como camada obrigatória.",
+    },
+  },
+  {
+    id: "segredos",
+    title: "Segredos e chaves de API",
+    subtitle: "A credencial que não é de gente, e vaza igual",
+    icon: "Lock",
+    readingMinutes: 4,
+    tags: ["TI", "Desenvolvimento", "Crítico"],
+    family: "Credenciais",
+    tldr:
+      "Chave de API, token e senha de banco são credenciais de sistema: se aparecerem em repositório, prompt ou print, precisam ser trocadas imediatamente.",
+    flow: ["Segredo no código", "Bots varrem o repositório", "Acesso direto ao sistema"],
+    flowIcons: ["Code", "Bot", "Server"],
+    whatItIs:
+      "Segredo é toda credencial que autentica um sistema em vez de uma pessoa: chave de API, token de acesso, senha de banco de dados, certificado privado, string de conexão. Eles costumam ter privilégio alto e nenhum segundo fator — quem tem a chave entra. O vazamento raramente é por invasão: é o arquivo .env colado numa conversa, a chave commitada por engano, o print da tela com o token visível, o log de depuração publicado.",
+    howTheyAct: [
+      "Bots varrem repositórios públicos continuamente, em busca de padrões de chave — o tempo até a primeira tentativa de uso costuma ser de minutos.",
+      "Buscam também em pastebins, prints em redes sociais e anexos de chamados.",
+      "Com a chave em mãos, acessam a API diretamente: não há login, não há MFA, não há alerta de acesso suspeito.",
+      "Usam o acesso para extrair dados, criar recursos na nuvem às custas da empresa ou manter persistência.",
+    ],
+    defense: [
+      "Nunca cole segredo em prompt de IA, chamado, chat ou apresentação — mesmo que 'seja só para mostrar o erro'.",
+      "Segredo exposto é segredo comprometido: revogue e emita uma nova chave antes de qualquer outra coisa.",
+      "Apagar o commit não resolve: o histórico permanece e os bots já leram. Rotacione primeiro, limpe depois.",
+      "Use cofre de segredos e variáveis de ambiente; nunca escreva a chave no código.",
+      "Ao pedir revisão de código para uma IA, remova .env, tokens e strings de conexão antes de enviar.",
+    ],
+    takeaway:
+      "Se um segredo apareceu em algum lugar que você não controla, ele já não é segredo. Rotacione.",
+  },
+  {
+    id: "supply-chain",
+    title: "Cadeia de suprimentos digital",
+    subtitle: "Quando o ataque entra pelo fornecedor ou pela biblioteca",
+    icon: "Package",
+    readingMinutes: 4,
+    tags: ["TI", "Compras", "Alto impacto"],
+    family: "Terceiros",
+    tldr:
+      "Você pode estar seguro e ser invadido assim mesmo: pelo acesso do fornecedor ou por uma dependência maliciosa no seu código.",
+    flow: ["Invadem o elo mais fraco", "Usam o acesso legítimo", "Entram sem arrombar nada"],
+    flowIcons: ["Building2", "KeyRound", "DoorOpen"],
+    whatItIs:
+      "Ataque de cadeia de suprimentos é aquele que chega por alguém em quem você já confia: o fornecedor com acesso ao seu ERP, o prestador que mantém um sistema, a biblioteca que seu código instala. Do lado técnico, existe o slopsquatting — o criminoso registra o nome de pacote que modelos de IA costumam alucinar e espera alguém instalar. Do lado contratual, o risco é o acesso concedido sem contrato de segurança, sem MFA e sem prazo.",
+    howTheyAct: [
+      "Identificam terceiros com acesso à sua rede e atacam o que tiver menos defesa.",
+      "Publicam pacotes com nomes plausíveis, recém-criados, sem repositório e com poucos downloads.",
+      "Aproveitam scripts de instalação, que rodam com as permissões de quem instalou — inclusive no servidor de build.",
+      "Pedem acessos 'temporários' e 'só de leitura' que nunca são revistos nem revogados.",
+    ],
+    defense: [
+      "Toda dependência nova passa por verificação: idade, mantenedores, repositório vinculado e histórico de versões.",
+      "Pacote com 6 dias de vida, um mantenedor e nenhum repositório não entra em produção.",
+      "Acesso de terceiro exige contrato com cláusula de segurança, usuário nominal, MFA, escopo mínimo e prazo.",
+      "Usuário genérico compartilhado com fornecedor elimina a rastreabilidade — não conceda.",
+      "Revise periodicamente quem ainda tem acesso: contrato encerrado, acesso encerrado.",
+    ],
+    takeaway:
+      "Quando o fornecedor for invadido, o incidente será seu. Escopo mínimo e prazo definido são o contrato que evita isso.",
+    stat: {
+      value: "30%",
+      label: "das violações envolvem um terceiro — o dobro do ano anterior",
+      source: "Verizon DBIR 2025",
+    },
+  },
+  {
+    id: "nuvem",
+    title: "Nuvem mal configurada",
+    subtitle: "Ninguém invadiu: a porta estava aberta",
+    icon: "Cloud",
+    readingMinutes: 4,
+    tags: ["TI", "Infraestrutura", "Dados"],
+    family: "Infraestrutura",
+    tldr:
+      "A maior parte dos vazamentos em nuvem não vem de invasão, e sim de um bucket público ou de uma porta liberada 'só para testar'.",
+    flow: ["Regra aberta para testar", "Bots varrem a internet", "Dados copiados"],
+    flowIcons: ["CloudOff", "Radar", "FileText"],
+    whatItIs:
+      "Serviços em nuvem nascem fechados e são abertos por engano ou por pressa. Um bucket de armazenamento marcado como público fica indexável e é copiado por varredores automatizados em minutos. Uma regra de firewall com 0.0.0.0/0 expõe o serviço à internet inteira — e vale lembrar que assistentes de IA sugerem exatamente isso quando o pedido é 'resolver o timeout rápido'. 'Temporário' é como a maioria dos bancos de dados expostos nasceu.",
+    howTheyAct: [
+      "Varredores mapeiam continuamente faixas de endereços e serviços em nuvem expostos.",
+      "Encontram buckets públicos, bancos sem senha e painéis administrativos abertos.",
+      "Copiam o conteúdo antes que alguém perceba; em muitos casos deixam um bilhete de resgate no lugar.",
+      "Quando há credencial de nuvem vazada junto, criam recursos para minerar criptomoeda na sua conta.",
+    ],
+    defense: [
+      "Aplique menor privilégio: libere o CIDR do serviço que precisa acessar, nunca 0.0.0.0/0.",
+      "Trate sugestão de IA como proposta, não como autoridade — principalmente em firewall e política de bucket.",
+      "Nunca remova autenticação 'para descartar problema de credencial'; defesa em profundidade existe porque camadas falham.",
+      "Revise permissões públicas de armazenamento periodicamente, e ative alerta para mudança de exposição.",
+      "Se abriu algo para teste, feche no mesmo dia — e registre, para que alguém confira.",
+    ],
+    takeaway:
+      "Exposição em nuvem não precisa de atacante habilidoso. Precisa só de uma regra esquecida.",
+  },
+  {
+    id: "anexos-malware",
+    title: "Anexos e arquivos maliciosos",
+    subtitle: "O que a extensão do arquivo está dizendo",
+    icon: "FileText",
+    readingMinutes: 3,
+    tags: ["Todos os setores", "E-mail", "Base"],
+    family: "Malware",
+    tldr:
+      "Vale sempre a última extensão do arquivo: 'nota_fiscal.pdf.exe' é um programa, não um documento.",
+    flow: ["Anexo disfarçado", "Você abre o arquivo", "Código roda na máquina"],
+    flowIcons: ["Mail", "FileText", "ShieldAlert"],
+    whatItIs:
+      "Arquivos maliciosos chegam disfarçados de documento de trabalho: nota fiscal, currículo, comprovante, planilha de cobrança. O disfarce mais comum é a extensão dupla — o Windows esconde a extensão real por padrão, então 'boleto.pdf.exe' aparece como 'boleto.pdf'. Outro vetor frequente é a planilha com macro (.xlsm), que pede 'habilitar conteúdo' para executar código, e o atalho (.lnk) que aparenta ser uma pasta.",
+    howTheyAct: [
+      "Enviam o anexo com um pretexto de rotina: cobrança em aberto, pedido de orçamento, currículo para a vaga.",
+      "Usam extensão dupla ou formatos que executam código (.exe, .lnk, .js, .xlsm, .iso).",
+      "Pedem para 'habilitar edição' ou 'habilitar conteúdo' — é o clique que libera a macro.",
+      "Frequentemente o e-mail vem de uma conta legítima já comprometida, o que derruba a suspeita.",
+    ],
+    defense: [
+      "Leia a extensão final do arquivo, não o nome. Documento não termina em .exe, .lnk ou .js.",
+      "Nunca habilite macros em planilha recebida por e-mail, mesmo de remetente conhecido.",
+      "Anexo inesperado, mesmo de colega, merece uma confirmação por outro canal antes de abrir.",
+      "Prefira receber documentos por link do sistema corporativo em vez de anexo.",
+      "Se abriu algo suspeito, desconecte da rede e acione o suporte — não tente resolver sozinho.",
+    ],
+    takeaway:
+      "O nome do arquivo é escolhido pelo atacante. A extensão final é o que o sistema vai obedecer.",
+  },
+  {
+    id: "resposta-incidente",
+    title: "Os primeiros minutos de um incidente",
+    subtitle: "A ordem certa quando algo dá errado",
+    icon: "ShieldAlert",
+    readingMinutes: 4,
+    tags: ["Todos os setores", "Resposta", "Crítico"],
+    family: "Resposta",
+    tldr:
+      "Não piorar, conter, avisar pelo canal certo, manter a operação, preservar evidência — nessa ordem.",
+    flow: ["Percebeu algo estranho", "Isola sem desligar", "Aciona quem responde"],
+    flowIcons: ["Eye", "Wifi", "Phone"],
+    whatItIs:
+      "O que define o tamanho de um incidente quase nunca é a técnica do atacante: é o tempo até alguém agir e a ordem das primeiras ações. Tentar consertar por conta própria costuma destruir a evidência de que o time de resposta precisa. Desligar a máquina apaga a memória volátil, onde ficam processos, conexões e às vezes a própria chave de criptografia. Avisar por e-mail quando a caixa pode estar comprometida avisa também o atacante.",
+    howTheyAct: [
+      "O atacante conta com o tempo: quanto mais demora a reação, mais ele se espalha e mais dados saem.",
+      "Conta também com o constrangimento da vítima, que adia o reporte por medo de punição.",
+      "Em ransomware, escolhe véspera de feriado e fim de expediente justamente para alongar a janela.",
+    ],
+    defense: [
+      "Não interaja com o que parece malicioso: não abra o bilhete de resgate, não renomeie arquivos, não teste o link 'para ver'.",
+      "Desconecte a máquina da rede (cabo ou Wi-Fi) e NÃO desligue: a memória é evidência.",
+      "Acione o canal oficial de segurança por telefone — se o e-mail estiver comprometido, o atacante lê o aviso.",
+      "Só então reorganize a operação (outro caixa, outro terminal, contingência em papel).",
+      "Registre horário, o que aconteceu e o que foi conectado ou clicado, enquanto está fresco.",
+      "Reporte mesmo quando não caiu no golpe: a tentativa que chegou até você chegou a mais gente.",
+    ],
+    takeaway:
+      "Erro reportado em minutos é incidente. Erro escondido por dias é violação — e a diferença é quem conta primeiro.",
+  },
+  {
+    id: "lgpd",
+    title: "LGPD no dia a dia",
+    subtitle: "O que muda na sua rotina, sem juridiquês",
+    icon: "Users",
+    readingMinutes: 4,
+    tags: ["Todos os setores", "Conformidade", "Dados"],
+    family: "Proteção de dados",
+    tldr:
+      "Dado pessoal só se usa para a finalidade combinada, com quem precisa — e incidente se comunica a partir do momento em que você soube.",
+    flow: ["Dado é coletado", "Usado só para o fim previsto", "Descartado com segurança"],
+    flowIcons: ["Users", "BadgeCheck", "CloudOff"],
+    whatItIs:
+      "A Lei Geral de Proteção de Dados trata de qualquer informação que identifique uma pessoa: nome, CPF, endereço, telefone, compras, salário. Na prática do varejo isso aparece em cadastro de cliente, etiqueta de entrega, planilha de RH, gravação de atendimento e transcrição de chamada. Três princípios resolvem a maior parte das dúvidas: finalidade (use só para o que foi combinado), necessidade (use o mínimo) e segurança (proteja e descarte direito). Colar dado pessoal numa IA pública não homologada falha nos três.",
+    howTheyAct: [
+      "O problema costuma nascer sem atacante: anexo enviado ao destinatário errado, etiqueta no lixo comum, planilha compartilhada 'com todos da empresa'.",
+      "Dado exposto vira insumo de golpe — quem tem o pedido e o endereço liga para o cliente com credibilidade.",
+      "O agravamento vem do silêncio: o prazo legal conta a partir do conhecimento do incidente, não da descoberta pública.",
+    ],
+    defense: [
+      "Pergunte se a tarefa precisa do dado identificado. Quase sempre não precisa — e aí ele não sai.",
+      "Compartilhe pelo mínimo: link com permissão em vez de anexo, acesso por pessoa em vez de por grupo.",
+      "Descarte impresso em coletor seguro; rasgar ao meio não descaracteriza dado pessoal.",
+      "Se errou, reporte na hora ao gestor e ao canal de privacidade: o recall funciona nos primeiros minutos.",
+      "Não improvise a comunicação ao cliente — ela é conduzida pelo time de privacidade.",
+    ],
+    takeaway:
+      "Finalidade, necessidade e segurança. Se a resposta a uma delas for desconfortável, o dado não deveria estar ali.",
+    deepDive: {
+      title: "Aprofundar: o que a lei exige na comunicação de incidente",
+      body:
+        "A LGPD (Lei 13.709/2018, art. 48) determina que o controlador comunique à ANPD e aos titulares a ocorrência de incidente de segurança que possa acarretar risco ou dano relevante. O prazo corre a partir do conhecimento do fato, e a comunicação deve descrever os dados afetados, os riscos envolvidos e as medidas adotadas. Por isso o reporte interno rápido não é burocracia: é o que permite à empresa cumprir o prazo legal.",
+    },
+  },
+  {
+    id: "typosquatting",
+    title: "Domínios e links falsos",
+    subtitle: "O endereço que quase é o nosso",
+    icon: "Link2Off",
+    readingMinutes: 3,
+    tags: ["Todos os setores", "Phishing", "Base"],
+    family: "Abuso de infraestrutura",
+    tldr:
+      "Criminosos registram endereços parecidos com o da empresa — uma letra trocada basta — e o cadeado do navegador não denuncia nada.",
+    flow: ["Registra domínio parecido", "Copia a aparência", "Você digita a senha"],
+    flowIcons: ["Link", "Eye", "KeyRound"],
+    whatItIs:
+      "Typosquatting é o registro de endereços visualmente próximos ao legítimo: uma letra trocada (leroymerlln), caracteres parecidos em fonte pequena (rn no lugar de m), prefixos plausíveis (pagamentos-leroy) ou extensões diferentes (.co no lugar de .com.br). O que vale num endereço é o nome registrável imediatamente antes da extensão — tudo à esquerda dele pode ser escolhido livremente por quem montou o golpe.",
+    howTheyAct: [
+      "Registram o domínio parecido: custa poucos reais e fica no ar em minutos.",
+      "Emitem certificado gratuito, então o cadeado aparece igual ao do site verdadeiro.",
+      "Clonam a aparência da página de login, às vezes copiando o código do site real.",
+      "Distribuem por e-mail, SMS, QR Code ou anúncio patrocinado no buscador.",
+      "Depois de capturar a senha, redirecionam você para o site verdadeiro — a sensação é de erro momentâneo.",
+    ],
+    defense: [
+      "Leia o endereço da direita para a esquerda: o que importa é o nome logo antes do .com.br.",
+      "Cadeado significa conexão criptografada, nunca identidade confiável.",
+      "Acesse sistemas por favorito salvo ou digitando o endereço — inclusive quando o link chega de um colega.",
+      "Desconfie do primeiro resultado patrocinado do buscador: ele pode ser do domínio falso.",
+      "Reporte o domínio suspeito; a derrubada protege quem receberia a mesma mensagem depois.",
+    ],
+    takeaway:
+      "Dois segundos lendo o endereço custam menos que qualquer tratativa de fraude depois.",
+    stat: {
+      value: "1 letra",
+      label: "é a diferença entre o domínio real e o falso na maioria das campanhas",
+      source: "Anti-Phishing Working Group, 2026",
+    },
+  },
+  {
+    id: "engenharia-social",
+    title: "Engenharia social",
+    subtitle: "Por que funciona com gente atenta e competente",
+    icon: "BrainCircuit",
+    readingMinutes: 4,
+    tags: ["Todos os setores", "Fundamento", "Base"],
+    family: "Fundamento",
+    tldr:
+      "O golpe não ataca o sistema, ataca a cooperação: autoridade, pressa e sigilo desligam a conferência que você faria normalmente.",
+    flow: ["Pesquisa o alvo", "Cria pressa e autoridade", "Pede a exceção"],
+    flowIcons: ["Eye", "Users", "DoorOpen"],
+    whatItIs:
+      "Engenharia social é a manipulação de pessoas para obter acesso, informação ou uma ação indevida. Não explora falha de programa: explora cooperação, hierarquia e pressa — características que a empresa incentiva o ano inteiro. Por isso cair não é sinal de ingenuidade, e tratar quem caiu como culpado tem um efeito garantido: ninguém mais reporta. Os gatilhos são poucos e repetidos, e é isso que permite treinar a defesa.",
+    howTheyAct: [
+      "Autoridade: assumem o papel de diretor, auditor ou suporte, porque questionar quem está acima custa caro socialmente.",
+      "Urgência: impõem prazo curto para eliminar o intervalo em que você conferiria.",
+      "Sigilo: pedem que ninguém saiba, o que remove a segunda opinião que derrubaria o golpe.",
+      "Prova social: afirmam que o resto do time já fez, transformando a recusa em desvio do grupo.",
+      "Escalada: começam com um pedido mínimo e aceitável, e ampliam sobre a confiança já construída.",
+    ],
+    defense: [
+      "Verifique por um canal que você escolheu: o ramal da lista interna, nunca o contato que a mensagem ofereceu.",
+      "Trate urgência como indicador de risco, não como prioridade — pedido legítimo sobrevive a cinco minutos.",
+      "Pedido de sigilo em assunto financeiro é sinal de fraude, não de confidencialidade.",
+      "Nunca compartilhe senha nem código de MFA, seja quem for que esteja pedindo.",
+      "Reporte também as tentativas em que você não caiu: a que chegou a você chegou a mais gente.",
+    ],
+    takeaway:
+      "Não existe verificação constrangedora — existe fraude que depende do seu constrangimento para funcionar.",
+    stat: {
+      value: "62%",
+      label: "das violações confirmadas envolvem o elemento humano",
+      source: "Verizon DBIR 2026",
+    },
+  },
+  {
+    id: "redes-publicas",
+    title: "Wi-Fi e redes desconhecidas",
+    subtitle: "A rede com sinal forte que não é da loja",
+    icon: "Wifi",
+    readingMinutes: 3,
+    tags: ["Loja", "CD", "Presencial"],
+    family: "Acesso",
+    tldr:
+      "Um ponto de acesso falso cabe numa mochila e custa pouco: quem conecta entrega o que trafega e, às vezes, a senha da rede real.",
+    flow: ["Criam rede parecida", "Você conecta e digita a senha", "Tudo passa por eles"],
+    flowIcons: ["Wifi", "KeyRound", "Eye"],
+    whatItIs:
+      "Um ponto de acesso falso é um equipamento pequeno que anuncia um nome de rede parecido com o da empresa — e com sinal mais forte, porque está mais perto de você. Quem se conecta passa a trafegar por ele: o atacante vê o que não está criptografado, redireciona páginas e, sobretudo, captura a senha corporativa digitada na tela de conexão. O mesmo vale para redes abertas de aeroporto, shopping e cafeteria.",
+    howTheyAct: [
+      "Posicionam o equipamento perto da área-alvo: estoque, doca, sala de espera.",
+      "Usam um nome plausível — o nome da empresa com um sufixo, ou o nome da rede de visitantes.",
+      "Contam com o aparelho conectar sozinho, porque já ficou salvo de uma vez anterior.",
+      "Apresentam uma tela pedindo a senha de rede, que é o objetivo real.",
+    ],
+    defense: [
+      "A rede corporativa já está configurada no seu aparelho: se pedir a senha de novo, desconfie.",
+      "Não conecte equipamento de trabalho em rede aberta; use o ponto de acesso do celular corporativo.",
+      "Rede desconhecida com nome parecido dentro da unidade é incidente físico — reporte com o local onde você estava.",
+      "Esqueça as redes públicas depois de usar, para o aparelho não reconectar sozinho.",
+    ],
+    takeaway:
+      "Sinal forte não é sinal de confiança. Se a rede pede sua senha corporativa, ela não é a rede corporativa.",
+  },
+  {
+    id: "exposicao-publica",
+    title: "O que você publica vira pesquisa",
+    subtitle: "OSINT: o reconhecimento que não invade nada",
+    icon: "Eye",
+    readingMinutes: 3,
+    tags: ["Liderança", "Todos os setores", "Prevenção"],
+    family: "Engenharia social",
+    tldr:
+      "Antes do golpe vem a pesquisa — e ela usa o que a própria empresa e seus colaboradores publicaram de graça.",
+    flow: ["Junta o que é público", "Monta o pretexto certo", "Ataca na hora certa"],
+    flowIcons: ["Eye", "FileText", "Mail"],
+    whatItIs:
+      "OSINT é a coleta de informação em fontes abertas: LinkedIn, site institucional, posts, fotos de crachá, vagas publicadas, palestras. Nada disso é invasão — e é justamente por isso que funciona. Com organograma, jargão interno e a agenda de quem viaja, o golpista escreve a mensagem que parece vir de dentro, no momento em que a pessoa que poderia conferir está indisponível.",
+    howTheyAct: [
+      "Mapeiam quem aprova pagamento, quem responde por TI e quem substitui quem.",
+      "Coletam áudio e vídeo públicos da liderança, que hoje bastam para clonar uma voz.",
+      "Leem vagas abertas: elas revelam quais sistemas a empresa usa.",
+      "Esperam o anúncio de viagem ou férias — a ausência explica por que você não pode ser consultado.",
+    ],
+    defense: [
+      "Publique depois do evento, não durante: evite anunciar ausência em tempo real.",
+      "Combine com o time que ausência anunciada não muda processo de aprovação.",
+      "Evite expor crachá, tela de sistema e nome de ferramentas internas em fotos.",
+      "Trate pedido de entrevista ou 'pesquisa acadêmica' sobre sistemas como reconhecimento: encaminhe à comunicação.",
+    ],
+    takeaway:
+      "Se a informação ajuda alguém a parecer de dentro, pense duas vezes antes de publicar.",
+  },
 ];
 
 export function findArticle(id: string): Article | undefined {
