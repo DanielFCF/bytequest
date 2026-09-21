@@ -155,14 +155,6 @@ números não mudam a cada reload, o que torna a demonstração reproduzível.
 
 Grupo **ByteQuest** — FIAP, Defesa Cibernética
 
-| Integrante | RM |
-|---|---|
-| Daniel Felipe Cavalcanti Fernandes | 563102 |
-| Douglas Fidelis do Carmo | 563157 |
-| Enzo Andrade de Santana | 563011 |
-| Henrique Fernandes Leister | 565871 |
-| Pedro Henrique Garcia de Souza | 565635 |
-
 ---
 
 Projeto acadêmico. Os cenários citam a Leroy Merlin como estudo de caso do
