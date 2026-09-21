@@ -16,8 +16,8 @@ isso por micro-aprendizado diário, com cenários da rotina real de cada setor:
 QR Code de PIX falso no caixa, desvio de carga por e-mail falsificado, planilha
 de comissionamento colada numa IA pública.
 
-**60 módulos** em 6 trilhas setoriais, **6 formatos de missão**, **14 verbetes**
-de consulta livre e um **painel executivo** de risco humano.
+**60 módulos** em 6 trilhas setoriais, **6 formatos de missão**, **25 verbetes**
+de consulta livre, **Modo Duelo** e um **painel executivo** de risco humano.
 
 ## Como rodar
 
@@ -49,7 +49,16 @@ npm start
 5. **Painel CISO/SOC** — botão **"Acesso corporativo"** na tela inicial, código
    **`SOC-2026`**. Repare que o risco da unidade sobe conforme os erros que você
    cometeu na sessão.
-6. **Multidispositivo** — botão **"Ver no celular"** no canto inferior direito
+6. **Duelo** — no menu lateral. Banco de 40 perguntas com 4 alternativas cada;
+   cinco por partida, 15 segundos por rodada, com placar por velocidade. A
+   classificação de liga (Bronze III → Diamante) acumula entre partidas na
+   sessão e aparece acima do botão de buscar partida, com quadro de líderes.
+   Os adversários são **bots simulados**, identificados com a etiqueta BOT:
+   não há matchmaking entre jogadores reais, e o quadro da liga é fictício.
+   Cada pergunta é ligada a um verbete da CyberPedia: a devolutiva indica onde
+   o assunto está explicado, e a tela final lista os verbetes das perguntas
+   erradas com atalho direto para a leitura.
+7. **Multidispositivo** — botão **"Ver no celular"** no canto inferior direito
    (só aparece em tela larga). Abre a própria aplicação numa viewport de 390px.
 
 ## Stack
@@ -69,12 +78,16 @@ app/
   api/rapid/answer/route.ts         POST — veredito de um card do Rapid Fire
   api/trilha/route.ts               GET/POST — diagnóstico e composição da trilha
   api/grc/route.ts                  GET  — telemetria agregada do painel
+  api/duelo/route.ts                GET  — abre partida do Modo Duelo
+  api/duelo/answer/route.ts         POST — resolve a pergunta e recalcula o placar
 lib/
   missions.ts     catálogo das 60 missões (SERVER-ONLY: contém o gabarito)
   dlp.ts          motor de detecção: CPF, cartão, AWS, JWT, chave privada…
-  cyberpedia.ts   14 verbetes (público)
+  cyberpedia.ts   25 verbetes (público)
   assessment.ts   questionário e compositor da trilha personalizada
   grc.ts          telemetria do painel executivo
+  duel.ts         banco de 40 perguntas e bot do Modo Duelo (SERVER-ONLY)
+  league.ts       faixas, progressão e quadro de líderes do Duelo (público)
   sectors.ts      setores (público)
   types.ts        contratos — sufixo `Public` = pode ir ao navegador
 ```
@@ -134,10 +147,22 @@ números não mudam a cada reload, o que torna a demonstração reproduzível.
 - Telemetria do painel é simulada — a estrutura de resposta já é a que a
   integração com o SOC preencheria.
 - O Agente Adversário baseado em LLM, previsto na Fase 1, não foi implementado.
+- O Modo Duelo não tem matchmaking real: o oponente é um bot determinístico,
+  declarado como tal na interface. A estrutura das rotas já comporta a troca por
+  partidas entre jogadores reais quando houver backend com sessão.
 
 ## Equipe
 
 Grupo **ByteQuest** — FIAP, Defesa Cibernética
+
+| Integrante | RM |
+|---|---|
+| Daniel Felipe Cavalcanti Fernandes | 563102 |
+| Douglas Fidelis do Carmo | 563157 |
+| Enzo Andrade de Santana | 563011 |
+| Henrique Fernandes Leister | 565871 |
+| Pedro Henrique Garcia de Souza | 565635 |
+
 ---
 
 Projeto acadêmico. Os cenários citam a Leroy Merlin como estudo de caso do
